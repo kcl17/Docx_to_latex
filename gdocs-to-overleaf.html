@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Docs to Overleaf LaTeX Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1f5;
+        }
+
+        .upload-section.dragover {
+            background: #e8eaf6;
+            border-color: #5e72e4;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 15px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .format-selector {
+            margin-bottom: 30px;
+        }
+
+        .format-selector h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .format-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .format-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .format-card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .format-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+
+        .format-card h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1.2em;
+        }
+
+        .format-card p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .options-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .options-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        .output-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .code-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .file-info {
+            background: #e8eaf6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .file-info.visible {
+            display: block;
+        }
+
+        .file-info h4 {
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .file-info p {
+            color: #555;
+            margin: 5px 0;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .format-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Google Docs → Overleaf LaTeX</h1>
+            <p>Convert your documents to professional LaTeX with multiple academic formats</p>
+        </div>
+
+        <div class="content">
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <h2>📤 Upload Your Document</h2>
+                <p style="margin: 15px 0; color: #666;">
+                    Drag & drop your .docx file here, or click to browse
+                </p>
+                <input type="file" id="fileInput" class="file-input" accept=".docx" />
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose File
+                </button>
+            </div>
+
+            <!-- File Info -->
+            <div class="file-info" id="fileInfo">
+                <h4>📋 Uploaded File</h4>
+                <p id="fileName"></p>
+                <p id="fileSize"></p>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="statusContainer"></div>
+
+            <!-- Format Selection -->
+            <div class="format-selector">
+                <h3>📚 Select LaTeX Format</h3>
+                <div class="format-grid">
+                    <div class="format-card selected" data-format="dissertation">
+                        <h4>📖 Dissertation</h4>
+                        <p>Complete thesis format with chapters, frontmatter, and backmatter. Perfect for PhD dissertations.</p>
+                    </div>
+                    <div class="format-card" data-format="ieee">
+                        <h4>📊 IEEE Conference</h4>
+                        <p>IEEE conference paper format with two-column layout and standard sections.</p>
+                    </div>
+                    <div class="format-card" data-format="article">
+                        <h4>📄 Academic Article</h4>
+                        <p>Clean article format for journals with abstract and references.</p>
+                    </div>
+                    <div class="format-card" data-format="report">
+                        <h4>📝 Technical Report</h4>
+                        <p>Professional report format with executive summary and appendices.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="options-section">
+                <h3>⚙️ Conversion Options</h3>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="includeComments" checked />
+                        Include LaTeX comments with formatting hints
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="extractImages" checked />
+                        Extract and include images
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="convertTables" checked />
+                        Convert tables to LaTeX format
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="generateBib" checked />
+                        Generate sample bibliography file
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="convertBtn" disabled>
+                    🔄 Convert to LaTeX
+                </button>
+                <button class="btn btn-secondary" id="downloadBtn" disabled>
+                    💾 Download Overleaf Package
+                </button>
+            </div>
+
+            <!-- Output Preview -->
+            <div class="output-section" id="outputSection" style="display: none;">
+                <h3>📝 LaTeX Output Preview (main.tex)</h3>
+                <div class="code-output" id="latexOutput"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let uploadedFile = null;
+        let selectedFormat = 'dissertation';
+        let convertedData = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFormatSelector();
+            initializeFileUpload();
+            initializeConvertButton();
+        });
+
+        // Format selector
+        function initializeFormatSelector() {
+            const cards = document.querySelectorAll('.format-card');
+            cards.forEach(card => {
+                card.addEventListener('click', () => {
+                    cards.forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    selectedFormat = card.dataset.format;
+                });
+            });
+        }
+
+        // File upload with drag & drop
+        function initializeFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadSection = document.getElementById('uploadSection');
+            const fileInfo = document.getElementById('fileInfo');
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.classList.add('dragover');
+            });
+
+            uploadSection.addEventListener('dragleave', () => {
+                uploadSection.classList.remove('dragover');
+            });
+
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].name.endsWith('.docx')) {
+                    fileInput.files = files;
+                    handleFileSelect({ target: fileInput });
+                } else {
+                    showStatus('Please drop a .docx file', 'error');
+                }
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            uploadedFile = file;
+            
+            // Show file info
+            document.getElementById('fileName').textContent = `File: ${file.name}`;
+            document.getElementById('fileSize').textContent = `Size: ${(file.size / 1024).toFixed(2)} KB`;
+            document.getElementById('fileInfo').classList.add('visible');
+            
+            // Enable convert button
+            document.getElementById('convertBtn').disabled = false;
+            
+            showStatus('File uploaded successfully! Click "Convert to LaTeX" to begin.', 'success');
+        }
+
+        // Convert button
+        function initializeConvertButton() {
+            document.getElementById('convertBtn').addEventListener('click', convertToLatex);
+            document.getElementById('downloadBtn').addEventListener('click', downloadOverleafPackage);
+        }
+
+        async function convertToLatex() {
+            if (!uploadedFile) {
+                showStatus('Please upload a file first', 'error');
+                return;
+            }
+
+            showStatus('Converting document... This may take a moment.', 'info');
+
+            try {
+                const arrayBuffer = await uploadedFile.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                const text = result.value;
+
+                // Get options
+                const options = {
+                    includeComments: document.getElementById('includeComments').checked,
+                    extractImages: document.getElementById('extractImages').checked,
+                    convertTables: document.getElementById('convertTables').checked,
+                    generateBib: document.getElementById('generateBib').checked
+                };
+
+                // Convert based on selected format
+                convertedData = generateLatexPackage(text, selectedFormat, options);
+
+                // Show preview
+                document.getElementById('latexOutput').textContent = convertedData.mainTex;
+                document.getElementById('outputSection').style.display = 'block';
+                document.getElementById('downloadBtn').disabled = false;
+
+                showStatus('✅ Conversion successful! You can now download the Overleaf package.', 'success');
+
+            } catch (error) {
+                showStatus(`Conversion failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        function generateLatexPackage(text, format, options) {
+            const formats = {
+                dissertation: generateDissertation,
+                ieee: generateIEEE,
+                article: generateArticle,
+                report: generateReport
+            };
+
+            return formats[format](text, options);
+        }
+
+        // Dissertation format generator
+        function generateDissertation(text, options) {
+            const sections = parseDocument(text);
+            
+            const mainTex = `% Dissertation Template - Ready for Overleaf
+% Main file: main.tex
+% Compile with: pdflatex or xelatex
+
+\\documentclass[12pt,a4paper,oneside]{report}
+
+% Essential packages
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{geometry}
+\\usepackage{setspace}
+\\usepackage{graphicx}
+\\usepackage{amsmath,amssymb,amsthm}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage{tocloft}
+\\usepackage{fancyhdr}
+\\usepackage[style=ieee,backend=biber]{biblatex}
+
+% Page geometry - adjust to your institution's requirements
+\\geometry{
+    a4paper,
+    left=1.5in,
+    right=1in,
+    top=1in,
+    bottom=1in
+}
+
+% Line spacing
+\\onehalfspacing
+
+% Headers and footers
+\\pagestyle{fancy}
+\\fancyhf{}
+\\fancyhead[R]{\\thepage}
+\\renewcommand{\\headrulewidth}{0.4pt}
+
+% Bibliography
+\\addbibresource{bibliography.bib}
+
+% Theorem environments
+\\newtheorem{theorem}{Theorem}[chapter]
+\\newtheorem{lemma}[theorem]{Lemma}
+\\newtheorem{definition}[theorem]{Definition}
+
+% Title and author information
+\\title{${sections.title || 'Dissertation Title'}}
+\\author{${sections.author || 'Author Name'}}
+\\date{\\today}
+
+\\begin{document}
+
+% ============= FRONT MATTER =============
+\\frontmatter
+\\pagenumbering{roman}
+
+% Title page
+\\input{frontmatter/titlepage}
+
+% Declaration
+\\input{frontmatter/declaration}
+
+% Certificate (if required)
+% \\input{frontmatter/certificate}
+
+% Dedication (optional)
+% \\input{frontmatter/dedication}
+
+% Acknowledgements
+\\input{frontmatter/acknowledgements}
+
+% Abstract
+\\input{frontmatter/abstract}
+
+% Table of Contents
+\\tableofcontents
+\\newpage
+
+% List of Figures
+\\listoffigures
+\\addcontentsline{toc}{chapter}{List of Figures}
+\\newpage
+
+% List of Tables
+\\listoftables
+\\addcontentsline{toc}{chapter}{List of Tables}
+\\newpage
+
+% ============= MAIN MATTER =============
+\\mainmatter
+\\pagenumbering{arabic}
+
+% Chapters
+\\input{chapters/chapter1_introduction}
+\\input{chapters/chapter2_literature_review}
+\\input{chapters/chapter3_methodology}
+\\input{chapters/chapter4_results}
+\\input{chapters/chapter5_discussion}
+\\input{chapters/chapter6_conclusion}
+
+% ============= BACK MATTER =============
+\\backmatter
+
+% Bibliography
+\\printbibliography[heading=bibintoc,title={References}]
+
+% Appendices
+\\appendix
+\\input{backmatter/appendix_a}
+% \\input{backmatter/appendix_b}
+
+\\end{document}`;
+
+            const titlePage = `% Title Page
+\\begin{titlepage}
+    \\centering
+    \\vspace*{2cm}
+    
+    {\\LARGE\\bfseries UNIVERSITY NAME\\\\[0.5cm]}
+    {\\large Department of Computer Science\\\\[2cm]}
+    
+    {\\Huge\\bfseries ${sections.title || 'Dissertation Title'}\\\\[1cm]}
+    
+    {\\Large A dissertation submitted in partial fulfillment\\\\
+    of the requirements for the degree of\\\\[0.5cm]
+    \\textbf{Doctor of Philosophy}\\\\[2cm]}
+    
+    {\\large By\\\\[0.5cm]}
+    {\\Large\\bfseries ${sections.author || 'Author Name'}\\\\[1cm]}
+    
+    {\\large Supervisor: Prof. [Supervisor Name]\\\\[3cm]}
+    
+    {\\large \\today}
+    
+    \\vfill
+\\end{titlepage}
+\\newpage`;
+
+            const declaration = `% Declaration
+\\chapter*{Declaration}
+\\addcontentsline{toc}{chapter}{Declaration}
+
+I hereby declare that this dissertation entitled "${sections.title || 'Dissertation Title'}" is a record of authentic research work carried out by me under the supervision of [Supervisor Name], and has not been submitted elsewhere for any degree or diploma.
+
+\\vspace{2cm}
+
+\\noindent
+Date: \\today \\hfill Signature: \\underline{\\hspace{5cm}}
+
+\\vspace{0.5cm}
+
+\\noindent
+Place: [City Name] \\hfill Name: ${sections.author || 'Author Name'}
+
+\\newpage`;
+
+            const acknowledgements = `% Acknowledgements
+\\chapter*{Acknowledgements}
+\\addcontentsline{toc}{chapter}{Acknowledgements}
+
+${options.includeComments ? '% TODO: Write your acknowledgements here' : ''}
+
+I would like to express my sincere gratitude to my supervisor, [Supervisor Name], for their guidance, support, and encouragement throughout this research work.
+
+I am also grateful to [Institution/Department] for providing the necessary facilities and resources for conducting this research.
+
+Finally, I would like to thank my family and friends for their constant support and encouragement.
+
+\\newpage`;
+
+            const abstract = `% Abstract
+\\chapter*{Abstract}
+\\addcontentsline{toc}{chapter}{Abstract}
+
+${options.includeComments ? '% TODO: Write your abstract (150-300 words)' : ''}
+${sections.abstract || 'This dissertation presents research on [topic]. The work addresses [problem] and proposes [solution]. Key findings include [results]. The implications of this research are [impact].'}
+
+\\vspace{1cm}
+
+\\noindent\\textbf{Keywords:} keyword1, keyword2, keyword3, keyword4, keyword5
+
+\\newpage`;
+
+            const chapter1 = `% Chapter 1: Introduction
+\\chapter{Introduction}
+\\label{ch:introduction}
+
+${options.includeComments ? '% This chapter introduces the research problem, objectives, and structure' : ''}
+
+\\section{Background}
+\\label{sec:background}
+
+${sections.chapters[0] || 'Provide background context for your research...'}
+
+\\section{Research Objectives}
+\\label{sec:objectives}
+
+The main objectives of this research are:
+\\begin{enumerate}
+    \\item Objective 1
+    \\item Objective 2
+    \\item Objective 3
+\\end{enumerate}
+
+\\section{Research Questions}
+\\label{sec:questions}
+
+This research addresses the following questions:
+\\begin{itemize}
+    \\item Question 1
+    \\item Question 2
+\\end{itemize}
+
+\\section{Dissertation Structure}
+\\label{sec:structure}
+
+The remainder of this dissertation is organized as follows:
+
+Chapter~\\ref{ch:literature} presents a comprehensive review of related literature.
+Chapter~\\ref{ch:methodology} describes the research methodology.
+Chapter~\\ref{ch:results} presents the experimental results.
+Chapter~\\ref{ch:discussion} discusses the findings.
+Chapter~\\ref{ch:conclusion} concludes the dissertation and suggests future work.
+`;
+
+            const chapter2 = `% Chapter 2: Literature Review
+\\chapter{Literature Review}
+\\label{ch:literature}
+
+${options.includeComments ? '% Review existing research and identify gaps' : ''}
+
+\\section{Introduction}
+
+This chapter reviews the existing literature on [topic].
+
+\\section{Theoretical Framework}
+
+${sections.chapters[1] || 'Describe theoretical foundations...'}
+
+\\section{Related Work}
+
+\\subsection{Area 1}
+
+Research in this area includes work by~\\cite{author2024}.
+
+\\subsection{Area 2}
+
+Recent advances have been made~\\cite{smith2023}.
+
+\\section{Research Gap}
+
+Despite significant progress, there remains a gap in understanding [aspect].
+
+\\section{Summary}
+
+This chapter reviewed [summary].
+`;
+
+            const chapter3 = `% Chapter 3: Methodology
+\\chapter{Methodology}
+\\label{ch:methodology}
+
+${options.includeComments ? '% Describe your research methods and experimental design' : ''}
+
+\\section{Research Design}
+
+${sections.chapters[2] || 'This research employs [methodology]...'}
+
+\\section{Data Collection}
+
+\\subsection{Dataset Description}
+
+The dataset consists of [description].
+
+\\subsection{Data Preprocessing}
+
+Data preprocessing steps include:
+\\begin{enumerate}
+    \\item Step 1
+    \\item Step 2
+    \\item Step 3
+\\end{enumerate}
+
+\\section{Experimental Setup}
+
+\\subsection{Hardware Configuration}
+
+Experiments were conducted on [hardware specifications].
+
+\\subsection{Software Tools}
+
+The following tools were used:
+\\begin{itemize}
+    \\item Tool 1: [purpose]
+    \\item Tool 2: [purpose]
+\\end{itemize}
+
+\\section{Evaluation Metrics}
+
+Performance was evaluated using:
+\\begin{itemize}
+    \\item Metric 1: [definition]
+    \\item Metric 2: [definition]
+\\end{itemize}
+`;
+
+            const chapter4 = `% Chapter 4: Results and Analysis
+\\chapter{Results and Analysis}
+\\label{ch:results}
+
+${options.includeComments ? '% Present your experimental results with figures and tables' : ''}
+
+\\section{Experimental Results}
+
+${sections.chapters[3] || 'This chapter presents the results obtained from experiments...'}
+
+\\section{Performance Analysis}
+
+${options.convertTables ? `\\begin{table}[htbp]
+    \\centering
+    \\caption{Performance comparison}
+    \\label{tab:performance}
+    \\begin{tabular}{lcc}
+        \\hline
+        Method & Accuracy (\\%) & Time (s) \\\\
+        \\hline
+        Baseline & 85.2 & 10.5 \\\\
+        Proposed & 92.1 & 8.3 \\\\
+        \\hline
+    \\end{tabular}
+\\end{table}
+
+Table~\\ref{tab:performance} shows the performance comparison.
+` : ''}
+
+${options.extractImages ? `\\begin{figure}[htbp]
+    \\centering
+    \\includegraphics[width=0.8\\textwidth]{figures/result_plot.png}
+    \\caption{Experimental results visualization}
+    \\label{fig:results}
+\\end{figure}
+
+Figure~\\ref{fig:results} illustrates the experimental results.
+` : ''}
+
+\\section{Statistical Analysis}
+
+Statistical significance was tested using [test name].
+
+\\section{Key Findings}
+
+The key findings from the experiments are:
+\\begin{enumerate}
+    \\item Finding 1
+    \\item Finding 2
+    \\item Finding 3
+\\end{enumerate}
+`;
+
+            const chapter5 = `% Chapter 5: Discussion
+\\chapter{Discussion}
+\\label{ch:discussion}
+
+${options.includeComments ? '% Interpret results and discuss implications' : ''}
+
+\\section{Interpretation of Results}
+
+${sections.chapters[4] || 'The results demonstrate that...'}
+
+\\section{Comparison with Related Work}
+
+Compared to previous research~\\cite{author2024}, our approach shows improved performance.
+
+\\section{Implications}
+
+The findings have several important implications:
+\\begin{itemize}
+    \\item Implication 1
+    \\item Implication 2
+\\end{itemize}
+
+\\section{Limitations}
+
+This research has the following limitations:
+\\begin{enumerate}
+    \\item Limitation 1
+    \\item Limitation 2
+\\end{enumerate}
+
+\\section{Threats to Validity}
+
+Potential threats to validity include [threats].
+`;
+
+            const chapter6 = `% Chapter 6: Conclusion and Future Work
+\\chapter{Conclusion and Future Work}
+\\label{ch:conclusion}
+
+${options.includeComments ? '% Summarize contributions and suggest future directions' : ''}
+
+\\section{Summary of Contributions}
+
+${sections.chapters[5] || 'This dissertation made the following contributions...'}
+
+The main contributions of this research are:
+\\begin{enumerate}
+    \\item Contribution 1
+    \\item Contribution 2
+    \\item Contribution 3
+\\end{enumerate}
+
+\\section{Conclusions}
+
+This research demonstrated that [conclusion].
+
+\\section{Future Work}
+
+Future research directions include:
+\\begin{itemize}
+    \\item Direction 1
+    \\item Direction 2
+    \\item Direction 3
+\\end{itemize}
+
+\\section{Closing Remarks}
+
+In conclusion, this work has advanced the understanding of [topic].
+`;
+
+            const appendixA = `% Appendix A
+\\chapter{Additional Data}
+\\label{app:data}
+
+${options.includeComments ? '% Include supplementary material like raw data, code, etc.' : ''}
+
+This appendix contains additional data and information that supports the main text.
+
+\\section{Dataset Details}
+
+[Provide detailed dataset information]
+
+\\section{Additional Experimental Results}
+
+[Include supplementary results]
+`;
+
+            const bibliography = options.generateBib ? `% bibliography.bib
+% Sample bibliography entries
+
+@article{author2024,
+    author = {Author, A. and Colleague, B.},
+    title = {Sample Article Title},
+    journal = {Journal of Research},
+    year = {2024},
+    volume = {10},
+    number = {2},
+    pages = {123--145},
+    doi = {10.1234/example}
+}
+
+@inproceedings{smith2023,
+    author = {Smith, J. and Jones, K.},
+    title = {Conference Paper Title},
+    booktitle = {Proceedings of International Conference},
+    year = {2023},
+    pages = {456--467},
+    publisher = {ACM}
+}
+
+@book{brown2022,
+    author = {Brown, M.},
+    title = {Book Title: Research Methods},
+    publisher = {Academic Press},
+    year = {2022},
+    edition = {2nd}
+}
+
+@misc{website2024,
+    author = {Organization},
+    title = {Web Page Title},
+    howpublished = {\\url{https://example.com}},
+    year = {2024},
+    note = {Accessed: 2024-01-01}
+}
+` : '';
+
+            const readme = `# Dissertation LaTeX Project
+
+This Overleaf project contains a complete dissertation template.
+
+## Structure
+
+- **main.tex** - Main document file (compile this)
+- **frontmatter/** - Title page, declaration, acknowledgements, abstract
+- **chapters/** - Individual chapter files
+- **backmatter/** - Appendices
+- **figures/** - Store images here
+- **tables/** - Store table data here
+- **bibliography.bib** - References database
+
+## Compiling
+
+1. Upload all files to Overleaf
+2. Set main.tex as the main document
+3. Compile with pdflatex or xelatex
+
+## Customization
+
+- Adjust margins in geometry package settings
+- Modify chapter titles and content
+- Update bibliography entries
+- Add/remove chapters as needed
+
+## Tips
+
+- Use \\\\label{} and \\\\ref{} for cross-references
+- Place figures in figures/ folder
+- Keep chapters in separate files for better organization
+- Update bibliography.bib with your references
+
+## Requirements
+
+All required packages are included in standard LaTeX distributions.
+
+Generated by Google Docs to Overleaf Converter
+`;
+
+            return {
+                mainTex,
+                files: {
+                    'frontmatter/titlepage.tex': titlePage,
+                    'frontmatter/declaration.tex': declaration,
+                    'frontmatter/acknowledgements.tex': acknowledgements,
+                    'frontmatter/abstract.tex': abstract,
+                    'chapters/chapter1_introduction.tex': chapter1,
+                    'chapters/chapter2_literature_review.tex': chapter2,
+                    'chapters/chapter3_methodology.tex': chapter3,
+                    'chapters/chapter4_results.tex': chapter4,
+                    'chapters/chapter5_discussion.tex': chapter5,
+                    'chapters/chapter6_conclusion.tex': chapter6,
+                    'backmatter/appendix_a.tex': appendixA,
+                    'bibliography.bib': bibliography,
+                    'README.md': readme
+                }
+            };
+        }
+
+        // IEEE Conference format generator
+        function generateIEEE(text, options) {
+            const sections = parseDocument(text);
+            
+            const mainTex = `% IEEE Conference Paper Template
+\\documentclass[conference]{IEEEtran}
+
+% Essential packages
+\\usepackage{cite}
+\\usepackage{amsmath,amssymb,amsfonts}
+\\usepackage{algorithmic}
+\\usepackage{graphicx}
+\\usepackage{textcomp}
+\\usepackage{xcolor}
+
+\\def\\BibTeX{{\\rm B\\kern-.05em{\\sc i\\kern-.025em b}\\kern-.08em
+    T\\kern-.1667em\\lower.7ex\\hbox{E}\\kern-.125emX}}
+
+\\begin{document}
+
+\\title{${sections.title || 'Conference Paper Title'}\\\\
+{\\footnotesize \\textsuperscript{*}Note: Sub-titles are not captured in Xplore and
+should not be used}
+}
+
+\\author{\\IEEEauthorblockN{${sections.author || 'First Author'}}
+\\IEEEauthorblockA{\\textit{dept. name of organization (of Aff.)} \\\\
+\\textit{name of organization (of Aff.)}\\\\
+City, Country \\\\
+email@example.com}
+\\and
+\\IEEEauthorblockN{Second Author}
+\\IEEEauthorblockA{\\textit{dept. name of organization (of Aff.)} \\\\
+\\textit{name of organization (of Aff.)}\\\\
+City, Country \\\\
+email@example.com}
+}
+
+\\maketitle
+
+\\begin{abstract}
+${sections.abstract || 'This paper presents research on [topic]. The work addresses [problem] and proposes [solution approach]. Experimental results demonstrate [key findings]. The proposed method achieves [performance metrics].'}
+\\end{abstract}
+
+\\begin{IEEEkeywords}
+keyword1, keyword2, keyword3, keyword4
+\\end{IEEEkeywords}
+
+\\section{Introduction}
+${options.includeComments ? '% Introduce the problem and motivation' : ''}
+
+${sections.chapters[0] || 'Introduction text here...'}
+
+The main contributions of this paper are:
+\\begin{itemize}
+    \\item Contribution 1
+    \\item Contribution 2
+    \\item Contribution 3
+\\end{itemize}
+
+\\section{Related Work}
+
+Previous research in this area includes work by~\\cite{reference1} and~\\cite{reference2}.
+
+\\section{Methodology}
+
+${sections.chapters[1] || 'Methodology description...'}
+
+\\subsection{Problem Formulation}
+
+The problem can be formulated as:
+\\begin{equation}
+    f(x) = ax^2 + bx + c
+    \\label{eq:sample}
+\\end{equation}
+
+\\subsection{Proposed Approach}
+
+Our approach consists of three main steps:
+\\begin{enumerate}
+    \\item Step 1: [description]
+    \\item Step 2: [description]
+    \\item Step 3: [description]
+\\end{enumerate}
+
+\\section{Experimental Results}
+
+${options.convertTables ? `\\begin{table}[htbp]
+\\caption{Performance Comparison}
+\\begin{center}
+\\begin{tabular}{|c|c|c|}
+\\hline
+\\textbf{Method} & \\textbf{Accuracy (\\%)} & \\textbf{Time (ms)} \\\\
+\\hline
+Baseline & 85.2 & 120 \\\\
+Proposed & 92.1 & 95 \\\\
+\\hline
+\\end{tabular}
+\\label{tab:performance}
+\\end{center}
+\\end{table}
+` : ''}
+
+${options.extractImages ? `\\begin{figure}[htbp]
+\\centerline{\\includegraphics[width=0.45\\textwidth]{figures/result.png}}
+\\caption{Experimental results visualization.}
+\\label{fig:results}
+\\end{figure}
+` : ''}
+
+The experimental results demonstrate the effectiveness of our approach.
+
+\\section{Discussion}
+
+${sections.chapters[3] || 'Discussion of results...'}
+
+\\section{Conclusion}
+
+This paper presented [summary]. Future work will focus on [future directions].
+
+\\section*{Acknowledgment}
+
+The authors would like to thank [acknowledgments].
+
+\\begin{thebibliography}{00}
+\\bibitem{reference1} A. Author, ``Article Title,'' \\textit{Journal Name}, vol. 10, no. 2, pp. 123--145, 2024.
+\\bibitem{reference2} B. Smith and C. Jones, ``Paper Title,'' in \\textit{Proc. Conf. Name}, 2023, pp. 456--467.
+\\end{thebibliography}
+
+\\end{document}`;
+
+            const readme = `# IEEE Conference Paper
+
+This is an IEEE conference paper template.
+
+## Files
+- main.tex - Main document
+- figures/ - Store images here
+
+## Compiling
+Compile with pdflatex
+
+## Tips
+- Use IEEEtran document class
+- Two-column format
+- Include keywords
+- Follow IEEE style guidelines
+
+Generated by Google Docs to Overleaf Converter
+`;
+
+            return {
+                mainTex,
+                files: {
+                    'README.md': readme
+                }
+            };
+        }
+
+        // Article format generator
+        function generateArticle(text, options) {
+            const sections = parseDocument(text);
+            
+            const mainTex = `% Academic Article Template
+\\documentclass[11pt,a4paper]{article}
+
+\\usepackage[utf8]{inputenc}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{graphicx}
+\\usepackage{amsmath,amssymb}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage{natbib}
+\\usepackage{authblk}
+
+\\title{${sections.title || 'Article Title'}}
+
+\\author[1]{${sections.author || 'First Author'}}
+\\author[2]{Second Author}
+\\affil[1]{Department, University, Country}
+\\affil[2]{Department, University, Country}
+
+\\date{\\today}
+
+\\begin{document}
+
+\\maketitle
+
+\\begin{abstract}
+${sections.abstract || 'This article presents research on [topic]. Key findings include [results].'}
+\\end{abstract}
+
+\\noindent\\textbf{Keywords:} keyword1, keyword2, keyword3
+
+\\section{Introduction}
+
+${sections.chapters[0] || 'Introduction content...'}
+
+\\section{Methods}
+
+${sections.chapters[1] || 'Methods description...'}
+
+\\section{Results}
+
+${sections.chapters[2] || 'Results presentation...'}
+
+\\section{Discussion}
+
+${sections.chapters[3] || 'Discussion of findings...'}
+
+\\section{Conclusion}
+
+${sections.chapters[4] || 'Conclusion and summary...'}
+
+\\bibliographystyle{plain}
+\\bibliography{references}
+
+\\end{document}`;
+
+            const bibliography = options.generateBib ? `@article{author2024,
+    author = {Author, A.},
+    title = {Article Title},
+    journal = {Journal Name},
+    year = {2024},
+    volume = {10},
+    pages = {123-145}
+}` : '';
+
+            return {
+                mainTex,
+                files: {
+                    'references.bib': bibliography,
+                    'README.md': '# Academic Article\n\nCompile with pdflatex\n\nGenerated by Google Docs to Overleaf Converter'
+                }
+            };
+        }
+
+        // Technical Report format generator
+        function generateReport(text, options) {
+            const sections = parseDocument(text);
+            
+            const mainTex = `% Technical Report Template
+\\documentclass[11pt,a4paper]{report}
+
+\\usepackage[utf8]{inputenc}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{graphicx}
+\\usepackage{amsmath}
+\\usepackage[hidelinks]{hyperref}
+\\usepackage{fancyhdr}
+
+\\pagestyle{fancy}
+\\fancyhf{}
+\\fancyhead[L]{${sections.title || 'Technical Report'}}
+\\fancyhead[R]{\\thepage}
+
+\\title{${sections.title || 'Technical Report Title'}}
+\\author{${sections.author || 'Author Name'}}
+\\date{\\today}
+
+\\begin{document}
+
+\\maketitle
+
+\\tableofcontents
+\\newpage
+
+\\chapter{Executive Summary}
+
+${sections.abstract || 'Executive summary content...'}
+
+\\chapter{Introduction}
+
+${sections.chapters[0] || 'Introduction content...'}
+
+\\chapter{Technical Details}
+
+${sections.chapters[1] || 'Technical details...'}
+
+\\chapter{Analysis}
+
+${sections.chapters[2] || 'Analysis content...'}
+
+\\chapter{Recommendations}
+
+${sections.chapters[3] || 'Recommendations...'}
+
+\\appendix
+\\chapter{Additional Data}
+
+Supplementary information.
+
+\\end{document}`;
+
+            return {
+                mainTex,
+                files: {
+                    'README.md': '# Technical Report\n\nCompile with pdflatex\n\nGenerated by Google Docs to Overleaf Converter'
+                }
+            };
+        }
+
+        // Parse document into sections
+        function parseDocument(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            
+            const result = {
+                title: '',
+                author: '',
+                abstract: '',
+                chapters: []
+            };
+
+            // Try to extract title (first non-empty line)
+            if (lines.length > 0) {
+                result.title = lines[0].trim();
+            }
+
+            // Try to extract author (look for "by" or "author")
+            const authorLine = lines.find(line => 
+                line.toLowerCase().includes('by ') || 
+                line.toLowerCase().includes('author')
+            );
+            if (authorLine) {
+                result.author = authorLine.replace(/by|author/gi, '').trim();
+            }
+
+            // Extract abstract
+            const abstractIndex = lines.findIndex(line => 
+                line.toLowerCase().includes('abstract')
+            );
+            if (abstractIndex >= 0 && abstractIndex < lines.length - 1) {
+                result.abstract = lines.slice(abstractIndex + 1, Math.min(abstractIndex + 5, lines.length)).join(' ');
+            }
+
+            // Extract chapters (split by major headings)
+            let currentChapter = '';
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.length < 50 && (
+                    line.match(/^chapter/i) ||
+                    line.match(/^[0-9]+\./) ||
+                    line.toUpperCase() === line && line.length > 5
+                )) {
+                    if (currentChapter) {
+                        result.chapters.push(currentChapter);
+                    }
+                    currentChapter = '';
+                } else {
+                    currentChapter += line + '\n\n';
+                }
+            }
+            if (currentChapter) {
+                result.chapters.push(currentChapter);
+            }
+
+            // Ensure at least 6 chapters
+            while (result.chapters.length < 6) {
+                result.chapters.push('');
+            }
+
+            return result;
+        }
+
+        // Download Overleaf package as ZIP
+        async function downloadOverleafPackage() {
+            if (!convertedData) {
+                showStatus('Please convert the document first', 'error');
+                return;
+            }
+
+            try {
+                const zip = new JSZip();
+                
+                // Add main.tex
+                zip.file('main.tex', convertedData.mainTex);
+                
+                // Add all other files
+                for (const [path, content] of Object.entries(convertedData.files)) {
+                    zip.file(path, content);
+                }
+                
+                // Create empty directories for figures and tables
+                zip.folder('figures');
+                zip.folder('tables');
+                
+                // Generate ZIP
+                const blob = await zip.generateAsync({ type: 'blob' });
+                
+                // Download
+                const filename = `overleaf_${selectedFormat}_${Date.now()}.zip`;
+                saveAs(blob, filename);
+                
+                showStatus(`✅ Package downloaded successfully! Upload the ZIP file to Overleaf.`, 'success');
+            } catch (error) {
+                showStatus(`Download failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Status message display
+        function showStatus(message, type) {
+            const container = document.getElementById('statusContainer');
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            
+            container.innerHTML = '';
+            container.appendChild(statusDiv);
+            
+            // Auto-dismiss success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.transition = 'opacity 0.5s';
+                    statusDiv.style.opacity = '0';
+                    setTimeout(() => statusDiv.remove(), 500);
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
