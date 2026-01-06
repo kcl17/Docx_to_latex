@@ -76,6 +76,12 @@ open gdocs-to-overleaf.html
 # On Linux:
 xdg-open gdocs-to-overleaf.html
 ```
+And if You're in a GitHub Codespaces/remote workspace!
+```bash 
+python3 -m http.server 8000
+
+# Add /gdocs-to-overleaf.html to the URL
+```
 
 ## 📋 How It Works
 
